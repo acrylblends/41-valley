@@ -1,26 +1,35 @@
-# valley
+# Valley
 
-A Cordis app on Node, scaffolded by `acrylblends init`. TypeScript, run by Node with no build step. Every part is a
-Cordis plugin.
+A cozy 3D valley life sim on a rolling world: fish, net butterflies, dig, shake fruit trees, craft furniture and trade gifts with the villagers.
 
-```sh
+![Valley](docs/screenshot.png)
+
+A Blend for [acrylblends](https://acrylblends.github.io): a whole app whose first screen is the game. Start your own copy, play it, and change it
+by hand or with the agents in the ACRYL frame.
+
+## Start your copy
+
+```bash
+npm create acrylblends@latest my-valley -- --from acrylblends.valley
+cd my-valley
 npm install
-npm run dev        # prints its URL; data lives in ~/.acryl/apps/<id>/data/
-npm test
-npm run check      # type-check
+npm start      # the game on its own server, at the address it prints
+npm run dev    # the game in the ACRYL frame, with the agents beside it
 ```
 
-- `src/main.ts` chooses where the app lives (`plugins/instance`) and starts it.
-- `blend.yaml` is the app as data: which plugins it mounts, in what order, with what config and parameters. Switch
-  one off with `disabled: true`. `npm run lock` writes `blend.lock.json`: the manifest's digest and a digest of
-  every plugin folder, so a diff of the lock shows what changed.
-- `src/app.ts` holds the registry of plugins the code provides, and mounts the manifest's rows.
-- `src/routes.ts` is your own plugin: it builds an `App` (`import { App } from './plugins/acryl-router/src/index.ts'`) and mounts it with `ctx.router.route(prefix, app)`. Routes added to the app after it is mounted are not served. A page mounted at `/x` answers `/x`, not `/x/` (trailing slashes are strict). The router API is documented at https://acrylblends.github.io/docs/framework/the-acryl-framework and in `docs/framework` of the acrylblends repository.
-- `plugins/` holds the plugins copied from the ACRYLBLENDS library. They are yours now; edit them freely.
-  Add more with `acrylblends add <plugin>`.
+Or straight from this repository: `npm create acrylblends@latest my-valley -- --from github:acrylblends/41-valley`.
 
-`npm run save -- "message"` commits the app with git (and pushes when it has a remote). It refuses a file that looks like
-it holds a secret, and refuses to push a private app (anything but `visibility: public` in `blend.yaml`) to a public
-remote.
+## Play
 
-Set `ACRYLBLENDS_HOME` to keep data elsewhere, and `ACRYLBLENDS_PORT` to choose the first port tried.
+Tools on 1 to 4: fishing rod, shovel, bug net and watering can.
+
+## How it is made
+
+- `plugins/game/`: the game's files in `public/`, served at the app's root (`/` on its own server, `/app/` in the frame). A path the game
+  does not have goes on to the app's own routes, so `/health` and `/about` still answer.
+- `blend.yaml`: the app as data. The `game` row comes before `routes`, so the game owns the first screen; switch it off with `disabled: true`.
+- Everything else is the acrylblends app: `npm test`, `npm run check`, `npm run save`.
+
+## Credits and licence
+
+Made from a game in the Argon games collection by Ammaar Reshi, with permission. MIT, see `LICENSE` and `NOTICE`.

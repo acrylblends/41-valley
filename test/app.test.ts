@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, readFileSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { join } from 'node:path'
@@ -7,6 +7,8 @@ import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { pinnedInstance, withPort } from '../plugins/instance/index.ts'
 import { type App, type AppOptions, createApp } from '../src/app.ts'
+import { PUBLIC_DIR } from '../plugins/game/index.ts'
+import { renderWidgets } from '../plugins/home/index.ts'
 import { APP_NAME, FRAME_MOUNT_PREFIX } from '../src/routes.ts'
 
 /** Throwaway homes live inside the project (`.acrylblends/` is ignored by git): a sandboxed agent may not write to the system temp folder. */
@@ -30,7 +32,7 @@ async function withApp(run: (app: App) => Promise<void>, options: AppOptions = {
   }
 }
 
-test('serves the index route: the first screen to a browser, the JSON hello to an API client', () =>
+test('serves the index route: the game to a browser, the JSON hello to an API client', () =>
   withApp(async (app) => {
     const api = await app.root.router.request(`/`)
     assert.equal(api.status, 200)
@@ -40,10 +42,16 @@ test('serves the index route: the first screen to a browser, the JSON hello to a
     })
     assert.equal(page.status, 200)
     assert.match(page.headers.get('content-type') ?? '', /text\/html/)
-    const html = await page.text()
-    // The ACRYL frame's first tile asks for a page: the root must never hand it JSON (Chrome's viewer is nearly invisible in the dark frame).
-    assert.ok(html.includes(`<h1>${APP_NAME}</h1>`), 'the page names the app')
-    assert.ok(html.includes('href="./about"'), 'the page links to About relatively')
+    // The first screen is the game's own page, as it is in plugins/game/public/index.html.
+    assert.equal(await page.text(), readFileSync(join(PUBLIC_DIR, 'index.html'), 'utf8'))
+  }))
+
+test('every file the game page links is served (relative links, so they also load under the frame /app/)', () =>
+  withApp(async (app) => {
+    const html = readFileSync(join(PUBLIC_DIR, 'index.html'), 'utf8')
+    const files = [...html.matchAll(/<(?:script|link)[^>]+(?:src|href)="\.\/([^"?#]+)/gu)].map((m) => m[1])
+    assert.ok(files.length > 0, 'the page links files of its own')
+    for (const file of files) assert.equal((await app.root.router.request(`/${file}`)).status, 200, file)
   }))
 
 test('renders a .tsx page, and an error in it names the .tsx line', () =>
@@ -98,8 +106,7 @@ test('the frame mounts the same app under /app; the app on its own server keeps 
 
 test('a plugin puts its widget on the first screen, and the widget leaves with the plugin', () =>
   withApp(async (app) => {
-    const page = async () =>
-      (await app.root.router.request('/', { headers: { accept: 'text/html' } })).text()
+    const page = () => renderWidgets(app.root.home)
     const feature = app.root.plugin({
       name: 'hello-widget',
       inject: ['home'],
@@ -114,6 +121,7 @@ test('a plugin puts its widget on the first screen, and the widget leaves with t
       },
     })
     await feature.await()
+    // The game is a browser's first screen, so the widgets are read from the home service, the way the template's home page reads them.
     assert.match(
       await page(),
       /<section class="widget" data-widget="hello-widget">[\s\S]*<p id="hello">hi<\/p>/,
